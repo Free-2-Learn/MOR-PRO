@@ -1,3 +1,14 @@
+name: Code Review with StarCoder
+
+on:
+  push:
+    branches:
+      - main  # <- change this to your actual default branch if not 'main'
+  pull_request:
+    types: [opened, synchronize]
+
+permissions: write-all
+
 jobs:
   code_review:
     runs-on: ubuntu-latest
@@ -7,7 +18,7 @@ jobs:
         uses: actions/checkout@v3
 
       - name: Fetch default branch
-        run: git fetch origin main --depth=1
+        run: git fetch origin main --depth=1  # change 'main' if needed
 
       - name: Run StarCoder Review
         run: |
