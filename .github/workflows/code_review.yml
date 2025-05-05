@@ -1,20 +1,48 @@
-name: Code Review with OpenAI
+name: Code Review with StarCoder
+
 on:
   pull_request:
-    types:
-      - opened
-      - synchronize
+    types: [opened, synchronize]
+
 permissions: write-all
+
 jobs:
   code_review:
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
-      - name: Code Review
-        uses: freeedcom/ai-codereviewer@main
-        with:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-          OPENAI_API_MODEL: "gpt-3.5-turbo"
-          exclude: "yarn.lock,dist/**"
+
+      - name: Run StarCoder Review
+        run: |
+          pip install replicate pygments
+
+          echo ">>> Scanning files for review..."
+          files=$(git diff --name-only origin/main...HEAD | grep -E '\.py$|\.js$|\.ts$|\.java$|\.cpp$|\.c$' || true)
+
+          if [ -z "$files" ]; then
+            echo "No code files to review."
+            exit 0
+          fi
+
+          for file in $files; do
+            echo "Reviewing: $file"
+            content=$(cat "$file" | head -c 4000 | sed ':a;N;$!ba;s/\n/\\n/g') # Replicate limits input length
+
+            output=$(curl -s -X POST \
+              -H "Authorization: Token ${{ secrets.REPLICATE_API_TOKEN }}" \
+              -H "Content-Type: application/json" \
+              -d '{
+                "input": {
+                  "prompt": "Review the following code for errors, readability, maintainability, and code smells:\n'"$content"'",
+                  "temperature": 0.2,
+                  "top_p": 0.95
+                },
+                "version": "db21e45f16ed9054c6c9adba39c3e3b90132de87f7e5ec94880c8e82cfa84717"
+              }' \
+              https://api.replicate.com/v1/predictions)
+
+            echo "Feedback for $file:"
+            echo "$output" | jq -r '.output[]?' || echo "No feedback received"
+          done
