@@ -2,7 +2,9 @@ name: Code Review with StarCoder
 
 on:
   pull_request:
-    types: [opened, synchronize]
+    types:
+      - opened
+      - synchronize
 
 permissions: write-all
 
@@ -13,14 +15,20 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
+        with:
+          fetch-depth: 0  # fetch full history to compare with main
+          ref: ${{ github.head_ref }}
 
-      - name: Run StarCoder Review
+      - name: Install dependencies
         run: |
           pip install replicate pygments jq
 
+      - name: Run StarCoder Review
+        run: |
           echo ">>> Scanning files for review..."
+          git fetch origin main  # ensure main is available locally
 
-          files=$(git diff --name-only origin/main...HEAD | grep -E '\.js$|\.html$|\.css$|\.json$' | grep -vE 'yarn.lock|package-lock.json|dist/' || true)
+          files=$(git diff --name-only origin/main...HEAD | grep -E '\.py$|\.js$|\.ts$|\.java$|\.cpp$|\.c$' || true)
 
           if [ -z "$files" ]; then
             echo "No code files to review."
@@ -36,7 +44,7 @@ jobs:
               -H "Content-Type: application/json" \
               -d '{
                 "input": {
-                  "prompt": "You are a professional code reviewer. Analyze this code for errors, security issues, readability, maintainability, and code smells:\n'"$content"'",
+                  "prompt": "Review the following code for errors, readability, maintainability, and code smells:\n'"$content"'",
                   "temperature": 0.2,
                   "top_p": 0.95
                 },
