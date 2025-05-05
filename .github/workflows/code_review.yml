@@ -16,7 +16,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v3
         with:
-          fetch-depth: 0
+          fetch-depth: 0  # fetch full history to compare with main
           ref: ${{ github.head_ref }}
 
       - name: Install dependencies
@@ -39,7 +39,11 @@ jobs:
             echo "Reviewing: $file"
             content=$(cat "$file" | head -c 4000 | sed ':a;N;$!ba;s/\n/\\n/g')
 
-            prediction=$(curl -s -X POST \
+            echo "Sending review request to Replicate API..."
+            echo "File: $file"
+            echo "Content preview: ${content:0:200}..."
+
+            response=$(curl -s -X POST \
               -H "Authorization: Token ${{ secrets.REPLICATE_API_TOKEN }}" \
               -H "Content-Type: application/json" \
               -d '{
@@ -52,16 +56,9 @@ jobs:
               }' \
               https://api.replicate.com/v1/predictions)
 
-            prediction_id=$(echo "$prediction" | jq -r '.id')
-            status="starting"
+            echo "Full API response:"
+            echo "$response" | jq '.' || echo "$response"
 
-            while [[ "$status" != "succeeded" && "$status" != "failed" ]]; do
-              sleep 3
-              response=$(curl -s -H "Authorization: Token ${{ secrets.REPLICATE_API_TOKEN }}" \
-                https://api.replicate.com/v1/predictions/$prediction_id)
-              status=$(echo "$response" | jq -r '.status')
-            done
-
-            echo "Feedback for $file:"
-            echo "$response" | jq -r '.output[]?' || echo "No feedback received"
+            echo "Parsed feedback:"
+            echo "$response" | jq -r '.output[]?' || echo "No feedback received or .output is missing"
           done
