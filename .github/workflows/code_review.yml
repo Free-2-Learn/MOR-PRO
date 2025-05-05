@@ -16,7 +16,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v3
         with:
-          fetch-depth: 0  # fetch full history to compare with main
+          fetch-depth: 0
           ref: ${{ github.head_ref }}
 
       - name: Install dependencies
@@ -37,23 +37,28 @@ jobs:
 
           for file in $files; do
             echo "Reviewing: $file"
-            content=$(cat "$file" | head -c 4000 | sed ':a;N;$!ba;s/\n/\\n/g')
+            content=$(cat "$file" | head -c 4000)
+
+            # Build safe JSON payload
+            payload=$(jq -n --arg prompt "Review the following code for errors, readability, maintainability, and code smells:\n$content" \
+              '{
+                input: {
+                  prompt: $prompt,
+                  temperature: 0.2,
+                  top_p: 0.95
+                },
+                version: "db21e45f16ed9054c6c9adba39c3e3b90132de87f7e5ec94880c8e82cfa84717"
+              }')
 
             echo "Sending review request to Replicate API..."
             echo "File: $file"
-            echo "Content preview: ${content:0:200}..."
+            echo "Content preview:"
+            echo "$content" | head -n 20
 
             response=$(curl -s -X POST \
               -H "Authorization: Token ${{ secrets.REPLICATE_API_TOKEN }}" \
               -H "Content-Type: application/json" \
-              -d '{
-                "input": {
-                  "prompt": "Review the following code for errors, readability, maintainability, and code smells:\n'"$content"'",
-                  "temperature": 0.2,
-                  "top_p": 0.95
-                },
-                "version": "db21e45f16ed9054c6c9adba39c3e3b90132de87f7e5ec94880c8e82cfa84717"
-              }' \
+              -d "$payload" \
               https://api.replicate.com/v1/predictions)
 
             echo "Full API response:"
