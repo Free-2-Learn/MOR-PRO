@@ -47,7 +47,7 @@ jobs:
                   temperature: 0.2,
                   top_p: 0.95
                 },
-                version: "db21e45f16ed9054c6c9adba39c3e3b90132de87f7e5ec94880c8e82cfa84717"
+                version: "9dcd6d78e7c6560c340d916fe32e9f24aabfa331e5cce95fe31f77fb03121426"
               }')
 
             echo "Sending review request to Replicate API..."
