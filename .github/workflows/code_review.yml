@@ -1,9 +1,6 @@
 name: Code Review with StarCoder
 
 on:
-  push:
-    branches:
-      - main  # <- change this to your actual default branch if not 'main'
   pull_request:
     types: [opened, synchronize]
 
@@ -17,15 +14,13 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v3
 
-      - name: Fetch default branch
-        run: git fetch origin main --depth=1  # change 'main' if needed
-
       - name: Run StarCoder Review
         run: |
-          pip install replicate pygments
+          pip install replicate pygments jq
 
           echo ">>> Scanning files for review..."
-          files=$(git diff --name-only origin/main...HEAD | grep -E '\.py$|\.js$|\.ts$|\.java$|\.cpp$|\.c$' || true)
+
+          files=$(git diff --name-only origin/main...HEAD | grep -E '\.js$|\.html$|\.css$|\.json$' | grep -vE 'yarn.lock|package-lock.json|dist/' || true)
 
           if [ -z "$files" ]; then
             echo "No code files to review."
@@ -41,7 +36,7 @@ jobs:
               -H "Content-Type: application/json" \
               -d '{
                 "input": {
-                  "prompt": "Review the following code for errors, readability, maintainability, and code smells:\n'"$content"'",
+                  "prompt": "You are a professional code reviewer. Analyze this code for errors, security issues, readability, maintainability, and code smells:\n'"$content"'",
                   "temperature": 0.2,
                   "top_p": 0.95
                 },
